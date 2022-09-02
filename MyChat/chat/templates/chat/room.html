@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8"/>
+    <title>MyChat</title>
+</head>
+<body>
+    {% if user.is_authenticated %}
+    <a href="/">Home</a> | <p>Welcome, {{ user.username }}. <a href="{% url 'logout' %}">Log out</a></p>
+    {% else %}
+    <p>Welcome, unknown user. Please <a href="{% url 'login' %}">log in</a> or <a href="{% url 'signup' %}">sign up</a>.</p>
+    {% endif %}
+    <textarea id="chat-log" cols="100" rows="20"></textarea><br>
+    {% if user.is_authenticated %}
+    <input id="chat-message-input" type="text" size="100"><br>
+    <input id="chat-message-submit" type="button" value="Send">
+    {{ room_name|json_script:"room-name" }}
+    <script>
+        const roomName = JSON.parse(document.getElementById('room-name').textContent);
+
+        {% for mess in old_messages %}
+        document.querySelector('#chat-log').value += `{{mess.create_datetime|date:"H:i:s" }} {{mess.sender}} : {{mess.text}} \n`;
+        {% endfor %}
+
+        const chatSocket = new WebSocket(
+            'ws://'
+            + window.location.host
+            + '/ws/chat/'
+            + roomName
+            + '/'
+        );
+
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            let user
+            if (data.user) {
+                user = data.user
+            } else {
+                user = 'Anonymous'
+            }
+            document.querySelector('#chat-log').value += `${data.time} ${user} : ${data.message} \n`;
+        };
+
+        chatSocket.onclose = function(e) {
+            console.error('Chat socket closed unexpectedly');
+        };
+
+        document.querySelector('#chat-message-input').focus();
+        document.querySelector('#chat-message-input').onkeyup = function(e) {
+            if (e.keyCode === 13) {  // enter, return
+                document.querySelector('#chat-message-submit').click();
+            }
+        };
+
+        document.querySelector('#chat-message-submit').onclick = function(e) {
+            const messageInputDom = document.querySelector('#chat-message-input');
+            const message = messageInputDom.value;
+            chatSocket.send(JSON.stringify({
+                'message': message
+            }));
+            messageInputDom.value = '';
+        };
+        
+    </script>
+    {% endif %}
+</body>
+</html>

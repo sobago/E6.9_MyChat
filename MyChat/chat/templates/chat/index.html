@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8"/>
+    <title>MyChat</title>
+</head>
+<body>
+    {% if user.is_authenticated %}
+    <p>Welcome, {{ user.username }}. <a href="{% url 'logout' %}">Log out</a></p>
+    {% else %}
+    <p>Welcome, unknown user. Please <a href="{% url 'login' %}">log in</a> or <a href="{% url 'signup' %}">sign up</a>.</p>
+    {% endif %}
+    What chat room would you like to enter?<br><br>
+    <table>
+        <tr>
+            <td>
+                {% comment %} Список комнат с кнопкой "удалить" {% endcomment %}
+                Rooms [{{ rooms.count }}]:
+                {% for i in rooms %}
+                </br><a href="{{ i.title }}">{{ i.title }}</a>
+                {% if user.is_authenticated %}
+                    <button onclick='deleteRoom({{ i.pk }})' id=del_{{ i.title }} type='button'>x</button>
+                {% endif %}
+                <span id="del_{{ i.pk }}_status"></span>
+                {% endfor %}
+            </td>
+            <td>
+                {% comment %} Список пользователей с кнопкой "написать" {% endcomment %}
+                Users [{{ users.count }}]:
+                {% for usr in users %}
+                </br>{{ usr.username }}
+                    {% if user.is_authenticated %}
+                        <button onclick="window.location.href = '{{request.user}}_{{ usr }}';" type="button">write</button>
+                    {% endif %}
+                {% endfor %}
+            </td>
+        </tr>
+        <tr><td><br></td></tr>
+        <tr>
+            <td>{% if user.is_authenticated %}
+                <strong>New room:</strong>
+                <input id="room-name-input" type="text" size="20"><br>
+                <input id="room-name-submit" type="button" value="Enter">
+            </td>{% endif %}
+        </tr>
+    </table>
+
+
+    <script>
+        {% if user.is_authenticated %}
+        document.querySelector('#room-name-input').focus();
+        document.querySelector('#room-name-input').onkeyup = function(e) {
+            if (e.keyCode === 13) {  // enter, return
+                document.querySelector('#room-name-submit').click();
+            }
+        };
+
+        document.querySelector('#room-name-submit').onclick = function(e) {
+            const roomName = translit(document.querySelector('#room-name-input').value);
+            window.location.pathname = '/chat/' + roomName + '/';
+        };
+        {% endif %}
+
+        function translit(word){
+            const converter = {
+                'а': 'a',    'б': 'b',    'в': 'v',    'г': 'g',    'д': 'd',
+                'е': 'e',    'ё': 'e',    'ж': 'zh',   'з': 'z',    'и': 'i',
+                'й': 'y',    'к': 'k',    'л': 'l',    'м': 'm',    'н': 'n',
+                'о': 'o',    'п': 'p',    'р': 'r',    'с': 's',    'т': 't',
+                'у': 'u',    'ф': 'f',    'х': 'h',    'ц': 'c',    'ч': 'ch',
+                'ш': 'sh',   'щ': 'sch',  'ь': '',     'ы': 'y',    'ъ': '',
+                'э': 'e',    'ю': 'yu',   'я': 'ya'
+            };
+         
+            word = word.toLowerCase();
+          
+            let answer = '';
+            for (let i = 0; i < word.length; ++i ) {
+                if (converter[word[i]] == undefined){
+                    answer += word[i];
+                } else {
+                    answer += converter[word[i]];
+                }
+            }
+         
+            answer = answer.replace(/[^-0-9a-z]/g, '');
+            answer = answer.replace(/[-]+/g, '');
+            answer = answer.replace(/^\-|-$/g, ''); 
+            return answer;
+        }
+        
+        // функция удаления комнаты
+        async function deleteRoom(id) {
+            await fetch(`/api-v1/rooms/${id}`, { method: 'DELETE', headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            } })
+            .then(() => document.getElementById(`del_${id}_status`).innerHTML = '* Deleted *');
+        }
+        
+    </script>
+</body>
+</html>
